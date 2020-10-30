@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <title>Ethereum File Notary</title>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/babel-polyfill/dist/polyfill.min.js"></script>
+
+    <!-- blockchain framework -->
+    <script type="text/javascript" src="./web3.min.js"></script>
+
+    <!-- blockchain scripts -->
+    <script type="text/javascript" src="./blockchain.js"></script>
+
+</head>
+
+<body>
+	<script>
+
+		/**
+		* Init connections and display data when page is loaded.
+		*/
+		window.addEventListener('load', async() => {
+			/* Create connection to blockchain and create smart contract object*/
+			await initBlockchain();
+
+			/* Display data read from blockchain */
+			displayBlockchainInfo();
+			displayFiles(ethereum.selectedAddress);
+		});
+
+		/**
+		* Get a file from form and open websocket to get the hash.
+		* @param formFileId : HTML id of form file input
+		* @return an array with file name as first element, websocket as second element.
+		*/
+		function sendFileForHash(formFileId) {
+			let file = $(formFileId)[0].files[0];
+			if(!file) return;
+
+			var ws = new WebSocket("ws://localhost:8100");
+			var fileName = file.name;
+
+			ws.onopen = function (event) {
+
+				console.log("fileName : "+fileName);
+
+				let reader = new FileReader();
+				reader.readAsArrayBuffer(file);
+
+				reader.onload = function() {
+					console.log(reader.result);
+					ws.send(reader.result);
+				};
+
+				reader.onerror = function() {
+					console.log(reader.error);
+				};
+			};
+			return [fileName, ws];
+		}
+
+		/**
+		* Call check service
+		*/
+		function callCheckFile(fileId) {
+			var result = sendFileForHash('#file'+fileId);
+			var fileName = result[0];
+			var ws = result[1];
+			ws.onmessage=function(event) {
+				console.log("hash : "+event.data);
+				checkFile(ethereum.selectedAddress, fileId, fileName, event.data);
+				ws.close();
+			};
+		}
+
+	</script>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <h5 class="card-header">Blockchain info</h5>
+                <div class="card-body">
+                    Node info : <span id="nodeInfo"></span>
+                    <br/>
+                    Block number : <span id="blockNumber"></span>
+                    <br/>
+                    Account : <span id="account"></span>
+                    <br/>
+                    Account balance : <span id="balance"></span> ETH
+                    <br/>
+                    Contract balance : <span id="contractBalance"></span> ETH
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br/>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <h5 class="card-header">My notarized files</h5>
+                <div class="card-body">
+                    <div id="myFiles"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+
+</html>
